@@ -1,10 +1,12 @@
 import numpy as np
+import pandas as pd
 import collections
 from collections import defaultdict, OrderedDict
 from transformers import Trainer, EvalPrediction
 from transformers.trainer_utils import PredictionOutput
 from typing import Tuple
 from tqdm.auto import tqdm
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 
 QA_MAX_ANSWER_LENGTH = 30
 
@@ -35,7 +37,43 @@ def compute_accuracy(eval_preds: EvalPrediction):
             np.float32).mean().item()
     }
 
+def compute_eval_metrics(eval_preds: EvalPrediction):
+    logits, labels = eval_preds
+    predictions = np.argmax(logits, axis=-1)
 
+    # Generate classification report for precision, recall, and F1 scores
+    target_names = ["entailment", "neutral", "contradiction"]
+    cm = confusion_matrix(labels, predictions)
+    cm_df = pd.DataFrame(cm, index=["entailment (label)", "neutral (label)", "contradiction (label)"], columns=["entailment (pred)", "neutral (pred)", "contradiction (pred)"])
+    cm = cm_df.map(lambda x: f"{x}".center(10))
+    report = classification_report(labels, predictions, target_names=target_names, output_dict=True)
+    accuracy = accuracy_score(labels, predictions)
+
+    # BELOW: print results to terminal
+    print(f"\n\nOverall Accuracy: {accuracy*100:.2f}%\n")
+    
+    data = {"Category": [],
+            "Precision (%)": [],
+            "Recall (%)": [],
+            "F1 Score (%)": []}
+    for category in target_names:
+        data["Category"].append(category)
+        data["Precision (%)"].append(100 * report[category]['precision'])
+        data["Recall (%)"].append(100 * report[category]['recall'])
+        data["F1 Score (%)"].append(100 * report[category]['f1-score'])
+
+    df = pd.DataFrame(data)
+    print(df.to_string(index=False, float_format="%.1f"))
+    print("\nConfusion Matrix:")
+    print(cm.to_string(index=True, justify="center"))
+    print( )
+    
+    return {
+        'accuracy': (np.argmax(
+            eval_preds.predictions,
+            axis=1) == eval_preds.label_ids).astype(
+            np.float32).mean().item()
+    }
 # This function preprocesses a question answering dataset, tokenizing the question and context text
 # and finding the right offsets for the answer spans in the tokenized context (to use as labels).
 # Adapted from https://github.com/huggingface/transformers/blob/master/examples/pytorch/question-answering/run_qa.py

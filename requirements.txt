@@ -1,6 +1,6 @@
 accelerate
-datasets
+datasets==3.0.2
 torch
 tqdm
-transformers
-evaluate
+transformers==4.46.0
+evaluate==0.4.3

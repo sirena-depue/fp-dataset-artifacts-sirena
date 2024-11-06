@@ -3,12 +3,25 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, \
     AutoModelForQuestionAnswering, Trainer, TrainingArguments, HfArgumentParser
 import evaluate
 from helpers import prepare_dataset_nli, prepare_train_dataset_qa, \
-    prepare_validation_dataset_qa, QuestionAnsweringTrainer, compute_accuracy
+    prepare_validation_dataset_qa, QuestionAnsweringTrainer, compute_accuracy, compute_eval_metrics
 import os
 import json
 
-NUM_PREPROCESSING_WORKERS = 2
 
+NUM_PREPROCESSING_WORKERS = 2
+"""
+
+python3 run.py --do_train --task nli --dataset snli --output_dir ./trained_model/ --num_train_epochs=3.0 --per_device_train_batch_size=128
+
+python3 run.py --do_eval --task nli --dataset snli --model ./trained_model/checkpoint-1500 --output_dir ./eval_output/ --max_eval_samples=50
+
+"""
+class CustomTrainer(Trainer):
+    def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
+        outputs = super().prediction_step(model, inputs, prediction_loss_only, ignore_keys) 
+        print(outputs)   
+        return outputs
+        
 
 def main():
     argp = HfArgumentParser(TrainingArguments)
@@ -32,19 +45,24 @@ def main():
     argp.add_argument('--model', type=str,
                       default='google/electra-small-discriminator',
                       help="""This argument specifies the base model to fine-tune.
-        This should either be a HuggingFace model ID (see https://huggingface.co/models)
-        or a path to a saved model checkpoint (a folder containing config.json and pytorch_model.bin).""")
+                              This should either be a HuggingFace model ID (see https://huggingface.co/models)
+                              or a path to a saved model checkpoint (a folder containing config.json and pytorch_model.bin).""")
+    
     argp.add_argument('--task', type=str, choices=['nli', 'qa'], required=True,
                       help="""This argument specifies which task to train/evaluate on.
-        Pass "nli" for natural language inference or "qa" for question answering.
-        By default, "nli" will use the SNLI dataset, and "qa" will use the SQuAD dataset.""")
+                              Pass "nli" for natural language inference or "qa" for question answering.
+                              By default, "nli" will use the SNLI dataset, and "qa" will use the SQuAD dataset.""")
+    
     argp.add_argument('--dataset', type=str, default=None,
                       help="""This argument overrides the default dataset used for the specified task.""")
+    
     argp.add_argument('--max_length', type=int, default=128,
                       help="""This argument limits the maximum sequence length used during training/evaluation.
-        Shorter sequence lengths need less memory and computation time, but some examples may end up getting truncated.""")
+                              Shorter sequence lengths need less memory and computation time, but some examples may end up getting truncated.""")
+    
     argp.add_argument('--max_train_samples', type=int, default=None,
                       help='Limit the number of examples to train on.')
+    
     argp.add_argument('--max_eval_samples', type=int, default=None,
                       help='Limit the number of examples to evaluate on.')
 
@@ -129,6 +147,8 @@ def main():
             remove_columns=eval_dataset.column_names
         )
 
+        
+
     # Select the training configuration
     trainer_class = Trainer
     eval_kwargs = {}
@@ -144,7 +164,7 @@ def main():
         compute_metrics = lambda eval_preds: metric.compute(
             predictions=eval_preds.predictions, references=eval_preds.label_ids)
     elif args.task == 'nli':
-        compute_metrics = compute_accuracy
+        compute_metrics =  compute_eval_metrics #compute_accuracy
     
 
     # This function wraps the compute_metrics function, storing the model's predictions
