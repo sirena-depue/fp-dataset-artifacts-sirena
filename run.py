@@ -69,10 +69,11 @@ def main():
     training_args, args = argp.parse_args_into_dataclasses()
 
     # Dataset selection
-    # IMPORTANT: this code path allows you to load custom datasets different from the standard SQuAD or SNLI ones.
-    # You need to format the dataset appropriately. For SNLI, you can prepare a file with each line containing one
-    # example as follows:
-    # {"premise": "Two women are embracing.", "hypothesis": "The sisters are hugging.", "label": 1}
+    """IMPORTANT: this code path allows you to load custom datasets different from the standard SQuAD or SNLI ones.
+    You need to format the dataset appropriately. For SNLI, you can prepare a file with each line containing one
+    example as follows:
+    {"premise": "Two women are embracing.", "hypothesis": "The sisters are hugging.", "label": 1}
+    Where premise = context, hypothesis = fact"""
     if args.dataset.endswith('.json') or args.dataset.endswith('.jsonl'):
         dataset_id = None
         # Load from local json/jsonl file
@@ -152,12 +153,12 @@ def main():
     # Select the training configuration
     trainer_class = Trainer
     eval_kwargs = {}
-    # If you want to use custom metrics, you should define your own "compute_metrics" function.
-    # For an example of a valid compute_metrics function, see compute_accuracy in helpers.py.
+    """If you want to use custom metrics, you should define your own "compute_metrics" function.
+    For an example of a valid compute_metrics function, see compute_accuracy in helpers.py."""
     compute_metrics = None
     if args.task == 'qa':
-        # For QA, we need to use a tweaked version of the Trainer (defined in helpers.py)
-        # to enable the question-answering specific evaluation metrics
+        """For QA, we need to use a tweaked version of the Trainer (defined in helpers.py)
+        to enable the question-answering specific evaluation metrics"""
         trainer_class = QuestionAnsweringTrainer
         eval_kwargs['eval_examples'] = eval_dataset
         metric = evaluate.load('squad')   # datasets.load_metric() deprecated
@@ -188,22 +189,20 @@ def main():
     if training_args.do_train:
         trainer.train()
         trainer.save_model()
-        # If you want to customize the way the loss is computed, you should subclass Trainer and override the "compute_loss"
-        # method (see https://huggingface.co/transformers/_modules/transformers/trainer.html#Trainer.compute_loss).
-        #
-        # You can also add training hooks using Trainer.add_callback:
-        #   See https://huggingface.co/transformers/main_classes/trainer.html#transformers.Trainer.add_callback
-        #   and https://huggingface.co/transformers/main_classes/callback.html#transformers.TrainerCallback
+        """If you want to customize the way the loss is computed, you should subclass Trainer and override the "compute_loss"
+        method (see https://huggingface.co/transformers/_modules/transformers/trainer.html#Trainer.compute_loss).
+        You can also add training hooks using Trainer.add_callback:
+          See https://huggingface.co/transformers/main_classes/trainer.html#transformers.Trainer.add_callback
+          and https://huggingface.co/transformers/main_classes/callback.html#transformers.TrainerCallback"""
 
     if training_args.do_eval:
         results = trainer.evaluate(**eval_kwargs)
 
-        # To add custom metrics, you should replace the "compute_metrics" function (see comments above).
-        #
-        # If you want to change how predictions are computed, you should subclass Trainer and override the "prediction_step"
-        # method (see https://huggingface.co/transformers/_modules/transformers/trainer.html#Trainer.prediction_step).
-        # If you do this your custom prediction_step should probably start by calling super().prediction_step and modifying the
-        # values that it returns.
+        """To add custom metrics, you should replace the "compute_metrics" function (see comments above).
+        If you want to change how predictions are computed, you should subclass Trainer and override the "prediction_step"
+        method (see https://huggingface.co/transformers/_modules/transformers/trainer.html#Trainer.prediction_step).
+        If you do this your custom prediction_step should probably start by calling super().prediction_step and modifying the
+        values that it returns."""
 
         print('Evaluation results:')
         print(results)
